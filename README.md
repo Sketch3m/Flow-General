@@ -21,19 +21,65 @@
 | `board.py` | the marimo issue board: import, filter, evidence, search, status, local chat | 385 |
 | `cells.py` | cells whose view is inferred from their language; latent graph context; needle→qwen chain | 697 |
 | `sheet.py` | the marimo **cell sheet**: per-cell widgets, hidden latent context, run-one-round | 346 |
+| `vault.py` | the marimo **vault**: sidebar of documents, real cells, native edits, queue strip | 364 |
+| `prune.py` | what a reader may skip: cited + gap-relevant + region quota, then a page budget | 291 |
+| `jobs.py` | the gap queue: caps borrowed from `plan.py`, a claim lock, status as a fold | 264 |
+| `worker.py` | drains the queue in another process; its proposals land in the delta log | 133 |
 | `bridge.py` | the five-paper experiment, with a template control that closes gaps without a model | 232 |
 | `experiment.md` | what the loop did, round by round, verbatim | 106 |
 | `papers/` | five arXiv abstracts fetched 2026-10-22, the corpus for the experiment | 5 files |
 | `app.py` | the page: notebook cells, margin notes, map, decision form | 854 |
 | `SOURCES.md` | the papers and tools, with peer-review status and what is only an analogy | 107 |
 | `test_issues.py` | adapters tested offline, including the GitHub parser with an injected fetcher | 207 |
+| `test_prune.py`, `test_jobs.py` | the three pruning policies and the queue's caps, claim and folds | 133 + 159 |
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 .venv/bin/marimo run app.py   --host 0.0.0.0 --port 3000 --no-token   # the document
 .venv/bin/marimo run board.py --host 0.0.0.0 --port 3000 --no-token   # the issue board
-.venv/bin/python -m unittest test_issues -v
+.venv/bin/marimo run vault.py --host 0.0.0.0 --port 3000 --no-token   # documents + queue
+.venv/bin/python worker.py --watch                                    # background agents
+.venv/bin/python -m unittest discover -p "test_*.py"
 ```
+
+## The vault: a folder of documents, one notebook, and a queue
+
+`vault.py` is the page where the three requests meet, and it is deliberately
+small: it reads documents, renders cells, and folds a log.
+
+```
+sidebar       every .md in sample.md + papers/          one page, any document
+cell          In: the document's own paragraph          Out: the widget its
+              Out: prose, question, claim, plot, code       language asks for
+model output  compressed by `prune.py`                  "1/9 statements · 340/2,180
+                                                          chars · 1 cited · 2 regions"
+edit          native text_area + apply                   `cell_edit` with actor=human
+queue         `python worker.py` in another process      job_done + cell_add, read
+                                                          back on a 5 s refresh
+```
+
+**The page is a fold, not a widget tree.** `cells.from_log(text, delta.fold_cells())`
+returns the document's cells plus whatever the log added; a human edit wins over
+the document's text and its view is re-inferred. That is what lets a worker in
+a different process add a cell that the page then shows: the shared state is
+`solve/delta.jsonl`, not the kernel.
+
+**Compression is graph-weighted, three ways, then budgeted.** A sentence survives
+if it quotes the corpus (`truth.find`), or names terms on both sides of a gap, or
+is the best sentence on a region the output passed through — and then the page
+budget cuts the union by score, so a cited sentence is the last thing dropped,
+never the first. Every cut statement is listed under one disclosure: dropped is
+not deleted, and the header says how much was withheld.
+
+**The queue borrows its caps instead of inventing them.** `jobs.py` refuses a
+fourth lane and a tenth attempt because `plan.py` argued for 3 and 9; it writes
+the sheet snapshot with the job, so a worker can rebuild exactly the cells the
+human was looking at. `worker.py` claims one job under a lock file, runs
+`cells.step` with the citation gate *evaluated but not blocking* (drafts quote
+nothing, so blocking would empty the queue and hide the finding), and appends
+the proposal. Stopping kills what has not started; a job already running in
+another process is not killable, and the code says so rather than implying
+otherwise.
 
 ## Gaps as issues: three graphs, one board
 

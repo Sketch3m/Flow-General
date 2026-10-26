@@ -578,6 +578,73 @@ def sheet_text(cells: list[Cell]) -> str:
     return "\n\n".join(c.text for c in cells if c.text.strip())
 
 
+def blocks(text: str) -> list[str]:
+    """A markdown document as cells: a heading keeps the paragraph under it.
+
+    Split on blank lines, then re-join a heading with what follows, because a
+    cell that is only a title has nothing for `infer()` to read. The threshold is
+    a small paragraph; below it, two fragments that belong together would be
+    two cells with two half-inferred views.
+    """
+    out: list[str] = []
+    buf: list[str] = []
+    for para in re.split(r"\n\s*\n", text.strip()):
+        p = para.strip()
+        if not p:
+            continue
+        if p.startswith("#"):
+            if buf:
+                out.append("\n\n".join(buf))
+            buf = [p]
+            continue
+        buf.append(p)
+        if len(" ".join(buf)) >= 60:
+            out.append("\n\n".join(buf))
+            buf = []
+    if buf:
+        # A trailing stub (a sign-off, a lone sentence) joins the cell before it
+        # rather than becoming a cell whose view has nothing to infer from.
+        if out and len(" ".join(buf)) < 40:
+            out[-1] = out[-1] + "\n\n" + "\n\n".join(buf)
+        else:
+            out.append("\n\n".join(buf))
+    return out
+
+
+def from_log(text: str, folded: dict[str, dict]) -> tuple[list[Cell], list[Cell]]:
+    """(document cells, agent proposals) from the document and the delta fold.
+
+    The document supplies the cells; the log supplies the human edits and the
+    proposals. Nothing here reads the UI - that is what makes the page a fold
+    rather than a widget tree, and why a worker in another process can add a
+    cell that appears on the next read.
+
+    A human edit wins over the document's own text and its view is re-inferred
+    from the new text, because an edited cell that keeps the old widget is a
+    view of a sentence that no longer exists.
+    """
+    doc_cells: list[Cell] = []
+    for i, block in enumerate(blocks(text), 1):
+        cell = Cell(id=f"d{i}", text=block, origin="human", role="note")
+        hit = folded.get(cell.id)
+        if hit and hit.get("text") and hit["text"] != cell.text:
+            cell = Cell(id=cell.id, text=hit["text"], origin=hit.get("added_by", "human"), role="note")
+        doc_cells.append(cell)
+    proposals = [
+        Cell.from_dict(d)
+        for d in folded.values()
+        if d.get("added_by") in ("qwen", "nodus") and d.get("text")
+    ]
+    # c10 must come after c9: ids are assigned as len(cells) + 1, so a plain
+    # string sort would put the tenth proposal before the ninth.
+    def _order(c: Cell) -> tuple[int, str]:
+        m = re.search(r"(\d+)$", c.id)
+        return (int(m.group(1)) if m else 0, c.id)
+
+    proposals.sort(key=_order)
+    return doc_cells, proposals
+
+
 def step(cells: list[Cell], mode: str = "draft", use_needle: bool = True, use_qwen: bool = True, sink=None, target: str | None = None, truth_gate: bool = False) -> dict:
     """One turn of the chain: nodus finds, needle decides, qwen points, nodus builds.
 

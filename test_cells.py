@@ -189,5 +189,45 @@ class SinkTest(unittest.TestCase):
         self.assertIn(res.get("stopped"), ("qwen produced nothing",))
 
 
+class FoldTest(unittest.TestCase):
+    """cells.from_log: the page is a fold over the document and the log."""
+
+    DOC = "# Title\n\nA paragraph long enough to stand alone as its own cell in the sheet.\n\nAnother paragraph that says something else entirely, at some length."
+
+    def test_blocks_keep_a_heading_with_its_paragraph(self):
+        bs = cells.blocks(self.DOC)
+        self.assertEqual(len(bs), 2)
+        self.assertTrue(bs[0].startswith("# Title"))
+        self.assertIn("paragraph", bs[0])
+
+    def test_short_trailing_fragment_does_not_become_its_own_cell(self):
+        bs = cells.blocks("A sufficiently long opening paragraph that carries the document.\n\nTail.")
+        self.assertEqual(len(bs), 1)
+        self.assertIn("Tail.", bs[0])
+
+    def test_document_alone_gives_no_proposals(self):
+        doc_cells, proposals = cells.from_log(self.DOC, {})
+        self.assertEqual(len(doc_cells), 2)
+        self.assertEqual(proposals, [])
+        self.assertEqual(doc_cells[0].id, "d1")
+
+    def test_a_human_edit_replaces_the_text_and_re_infers_the_view(self):
+        folded = {"d1": {"text": "Is this a question, now?", "added_by": "human"}}
+        doc_cells, _ = cells.from_log(self.DOC, folded)
+        self.assertEqual(doc_cells[0].text, "Is this a question, now?")
+        self.assertEqual(doc_cells[0].view, "")
+        cells.assign(doc_cells)
+        self.assertEqual(doc_cells[0].view, "question")
+
+    def test_agent_cells_become_proposals_in_id_order(self):
+        folded = {
+            "c10": {"id": "c10", "text": "second", "added_by": "qwen", "role": "hypothesis"},
+            "c9": {"id": "c9", "text": "first", "added_by": "qwen", "role": "hypothesis"},
+            "d1": {"id": "d1", "text": "a doc cell", "added_by": "human"},
+        }
+        _, proposals = cells.from_log(self.DOC, folded)
+        self.assertEqual([p.text for p in proposals], ["first", "second"])
+
+
 if __name__ == "__main__":
     unittest.main()
