@@ -1,0 +1,212 @@
+{
+ "base": {
+  "words": 1155,
+  "gaps": 2,
+  "score": 0.03,
+  "concepts": 716,
+  "modularity": 0.458
+ },
+ "draft": [
+  {
+   "n": 1,
+   "mode": "draft",
+   "gap": "automat~model",
+   "gap_score": 0.0299,
+   "direction": "What does automat imply that these papers have not said yet?",
+   "direction_ms": 782,
+   "text": "The two topics connect by demonstrating the versatility of a model in three distinct subfields of machine learning, supporting the model's ability to adapt and improve over time.",
+   "origin": "qwen-draft",
+   "crossed": false,
+   "kinds": [],
+   "before": {
+    "words": 1155,
+    "gaps": 2,
+    "score": 0.03,
+    "concepts": 716,
+    "modularity": 0.458
+   },
+   "after": {
+    "words": 1183,
+    "gaps": 2,
+    "score": 0.022,
+    "concepts": 731,
+    "modularity": 0.472
+   },
+   "ms": 3825,
+   "log": [
+    "nodus   gap automat~model score 0.030 (2 unbridged)",
+    "needle  ask @ 0.02 in 1528 ms - 'automat to model, score 0.03' -> a 'automat', b '0.03'; 'score 0.03' -> a 'score', b '0.0",
+    "policy  no human present: proceed with the top gap",
+    "qwen    direction: What does automat imply that these papers have not said yet? (782 ms)",
+    "qwen    sentence 778 ms - The two topics connect by demonstrating the versatility of a model in three distinct subfi",
+    "check   no typed relation crosses - []"
+   ]
+  },
+  {
+   "n": 2,
+   "mode": "draft",
+   "gap": "research~model",
+   "gap_score": 0.0222,
+   "direction": "What does research imply that these papers have not said yet?",
+   "direction_ms": 1302,
+   "text": "Conditioned on their research objectives and prior scientific evidence, it formulates demonstrably novel research hypotheses for experimental verification.",
+   "origin": "qwen-draft",
+   "crossed": false,
+   "kinds": [],
+   "before": {
+    "words": 1183,
+    "gaps": 2,
+    "score": 0.022,
+    "concepts": 731,
+    "modularity": 0.472
+   },
+   "after": {
+    "words": 1201,
+    "gaps": 2,
+    "score": 0.026,
+    "concepts": 744,
+    "modularity": 0.47
+   },
+   "ms": 5699,
+   "log": [
+    "nodus   gap research~model score 0.022 (2 unbridged)",
+    "needle  ask @ 0.05 in 1473 ms - 'Cell sheet. Human direction: None of these systems convinces me that a new claim is true;",
+    "policy  no human present: proceed with the top gap",
+    "qwen    direction: What does research imply that these papers have not said yet? (1302 ms)",
+    "qwen    sentence 1503 ms - Conditioned on their research objectives and prior scientific evidence, it formulates demo",
+    "check   no typed relation crosses - []"
+   ]
+  },
+  {
+   "n": 3,
+   "mode": "draft",
+   "gap": "model~therapeutic",
+   "gap_score": 0.0256,
+   "direction": "What does model imply that these papers have not said yet?",
+   "direction_ms": 1210,
+   "text": "To combine the strengths of these contrasting methods, we propose GraphRAG, a graph-based approach to question answering over private text corpora that scales with both the generality of user questions and the quantity of data.",
+   "origin": "qwen-draft",
+   "crossed": false,
+   "kinds": [],
+   "before": {
+    "words": 1201,
+    "gaps": 2,
+    "score": 0.026,
+    "concepts": 744,
+    "modularity": 0.47
+   },
+   "after": {
+    "words": 1236,
+    "gaps": 6,
+    "score": 0.042,
+    "concepts": 763,
+    "modularity": 0.488
+   },
+   "ms": 6686,
+   "log": [
+    "nodus   gap model~therapeutic score 0.026 (2 unbridged)",
+    "needle  ask @ 0.01 in 1515 ms - 'model to therapeutic score 0.03' -> a 'model to therapeutic', b '0.03'; 'score 0.03' -> a",
+    "policy  no human present: proceed with the top gap",
+    "qwen    direction: What does model imply that these papers have not said yet? (1210 ms)",
+    "qwen    sentence 2163 ms - To combine the strengths of these contrasting methods, we propose GraphRAG, a graph-based ",
+    "check   no typed relation crosses - []"
+   ]
+  }
+ ],
+ "quote": [
+  {
+   "n": 1,
+   "mode": "quote",
+   "gap": "automat~model",
+   "gap_score": 0.0299,
+   "direction": "What does automat imply that these papers have not said yet?",
+   "direction_ms": 1026,
+   "text": "> Automated evaluations show continued benefits of test-time compute scaling, improving hypothesis quality over time.\n\nDirection: What does automat imply that these papers have not said yet?",
+   "origin": "qwen-pick",
+   "crossed": false,
+   "kinds": [],
+   "before": {
+    "words": 1155,
+    "gaps": 2,
+    "score": 0.03,
+    "concepts": 716,
+    "modularity": 0.458
+   },
+   "after": {
+    "words": 1182,
+    "gaps": 3,
+    "score": 0.04,
+    "concepts": 733,
+    "modularity": 0.468
+   },
+   "ms": 3878,
+   "log": [
+    "nodus   gap automat~model score 0.030 (2 unbridged)",
+    "needle  ask @ 0.02 in 1495 ms - 'automat to model, score 0.03' -> a 'automat', b '0.03'; 'score 0.03' -> a 'score', b '0.0",
+    "policy  no human present: proceed with the top gap",
+    "qwen    direction: What does automat imply that these papers have not said yet? (1026 ms)",
+    "qwen    span 3 of 3 (1106 ms)",
+    "check   no typed relation crosses - []"
+   ]
+  },
+  {
+   "n": 2,
+   "mode": "quote",
+   "gap": "automat~kosmo",
+   "gap_score": 0.0399,
+   "direction": "What does automat imply that these papers have not said yet?",
+   "direction_ms": 929,
+   "text": "> The system's design involves agents continuously generating, critiquing and refining hypotheses accelerated by scaling test-time compute.\n\nDirection: What does automat imply that these papers have not said yet?",
+   "origin": "qwen-pick",
+   "crossed": false,
+   "kinds": [],
+   "before": {
+    "words": 1182,
+    "gaps": 3,
+    "score": 0.04,
+    "concepts": 733,
+    "modularity": 0.468
+   },
+   "after": {
+    "words": 1211,
+    "gaps": 4,
+    "score": 0.069,
+    "concepts": 751,
+    "modularity": 0.469
+   },
+   "ms": 3735,
+   "log": [
+    "nodus   gap automat~kosmo score 0.040 (3 unbridged)",
+    "needle  ask @ 0.00 in 1492 ms - 'automat to kosmo' -> a 'automat'; 'score 0.04' -> b '0.04'; 'draft one sentence into a ne",
+    "policy  no human present: proceed with the top gap",
+    "qwen    direction: What does automat imply that these papers have not said yet? (929 ms)",
+    "qwen    span 3 of 3 (1056 ms)",
+    "check   no typed relation crosses - []"
+   ]
+  }
+ ],
+ "control": [
+  {
+   "n": 1,
+   "text": "automat implies model.",
+   "crossed": true,
+   "kinds": [
+    "causal"
+   ],
+   "before": {
+    "words": 1155,
+    "gaps": 2,
+    "score": 0.03,
+    "concepts": 716,
+    "modularity": 0.458
+   },
+   "after": {
+    "words": 1158,
+    "gaps": 2,
+    "score": 0.037,
+    "concepts": 719,
+    "modularity": 0.458
+   }
+  }
+ ]
+}

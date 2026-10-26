@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 260" width="640" height="260" role="img" aria-label="a cat crossing a road at dusk">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2b3550"/>
+      <stop offset="100%" stop-color="#6b5a69"/>
+    </linearGradient>
+  </defs>
+  <rect width="640" height="260" fill="url(#sky)"/>
+  <rect y="150" width="640" height="110" fill="#2f3033"/>
+  <rect y="150" width="640" height="4" fill="#191a1c"/>
+  <g stroke="#c9c4a7" stroke-width="6" stroke-dasharray="34 26" opacity=".8">
+    <line x1="0" y1="205" x2="640" y2="205"/>
+  </g>
+  <g fill="#0e0f10">
+    <ellipse cx="318" cy="186" rx="58" ry="26"/>
+    <circle cx="378" cy="168" r="21"/>
+    <path d="M362 154 l6 -20 l13 12 z"/>
+    <path d="M382 152 l11 -18 l10 16 z"/>
+    <path d="M262 190 q-34 -4 -44 -30 q22 8 34 18 z"/>
+    <path d="M314 208 v18 h-9 v-18 z"/>
+    <path d="M344 208 v18 h-9 v-18 z"/>
+    <path d="M276 208 v18 h-8 v-18 z"/>
+  </g>
+  <g fill="#e7c66a" opacity=".9">
+    <circle cx="384" cy="164" r="2.4"/>
+    <circle cx="373" cy="164" r="2.4"/>
+  </g>
+  <text x="24" y="40" fill="#d8d3c4" font-family="ui-sans-serif, system-ui" font-size="15" opacity=".85">dusk · the cars wait</text>
+</svg>
