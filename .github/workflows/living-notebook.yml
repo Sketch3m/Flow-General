@@ -1,0 +1,21 @@
+name: Living notebook backend
+on:
+  push:
+    branches: [backend/living-notebook]
+  pull_request:
+    paths:
+      - 'flow_*.py'
+      - 'test_flow_runtime.py'
+      - '.github/workflows/living-notebook.yml'
+permissions:
+  contents: read
+jobs:
+  headless:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m unittest -v test_flow_runtime
