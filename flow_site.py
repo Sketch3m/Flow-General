@@ -98,14 +98,14 @@ def _(mo):
 
 @app.cell
 def _(browser, mo):
-    mo.Html("""<style>
+    _style = mo.Html("""<style>
     .flow-hero{padding:22px 0 16px;border-bottom:1px solid #8884;margin-bottom:12px}
     .flow-label{font:11px ui-monospace,monospace;letter-spacing:.13em;text-transform:uppercase;opacity:.65}
     .flow-title{font-size:32px;font-weight:650;letter-spacing:-.045em;margin:4px 0}
     .flow-cell-title{font-size:16px;font-weight:650;letter-spacing:-.015em}
     .flow-note{font-size:13px;opacity:.75;line-height:1.5}
     </style>""")
-    mo.sidebar([
+    _sidebar = mo.sidebar([
         mo.md("## Flow General"),
         mo.md("**Workspace**  \\nLiving notebook"),
         mo.md("**Runtime**  \\n" + ("Browser · Marimo / WASM" if browser else "Server · Marimo / Python")),
@@ -113,16 +113,16 @@ def _(browser, mo):
         mo.md("**Shadow**  \\nSupervisor not integrated. Legacy worker is separate."),
         mo.md("[Architecture roadmap](https://github.com/Sketch3m/Flow-General/issues/1)"),
     ], width=240)
-    mo.Html('<div class="flow-hero"><div class="flow-label">Computational notebook / 001</div>'
+    _hero = mo.Html('<div class="flow-hero"><div class="flow-label">Computational notebook / 001</div>'
             '<div class="flow-title">Flow General</div><div class="flow-note">Read. Explore. Execute. '
             'A notebook whose cells become working environments.</div></div>')
+    mo.vstack([_style, _sidebar, _hero])
     return
 
 
 @app.cell
 def _(get_notice, mo):
-    if get_notice():
-        mo.md(get_notice())
+    mo.md(get_notice() or "")
     return
 
 
@@ -234,19 +234,19 @@ def _(get_focus, get_workspace, mo, runtime, set_notice):
             result = runtime.queue(get_workspace(), get_focus() or "")
             set_notice(result["reason"])
         queue_button = mo.ui.button(label="Queue graph-gap investigation", on_click=_queue)
-        mo.vstack([mo.md("### Background investigations"), queue_button,
+        _panel = mo.vstack([mo.md("### Background investigations"), queue_button,
                    mo.md("Existing gap worker only. Start `python worker.py --watch` separately. "
                          "Saving intent or changing a parameter does not start an autonomous agent.")])
     else:
-        mo.md("### Background investigations\nServer workers are unavailable in the WASM preview. The Python app connects to the existing queue.")
+        _panel = mo.md("### Background investigations\nServer workers are unavailable in the WASM preview. The Python app connects to the existing queue.")
+    _panel
     return
 
 
 @app.cell
 def _(mo, runtime):
     poll = mo.ui.refresh(options=["5s", "15s", "1m"], default_interval="5s", label="Refresh worker results") if runtime else None
-    if poll:
-        poll
+    poll if runtime else mo.md("")
     return (poll,)
 
 
@@ -265,7 +265,10 @@ def _(add_cell, mo, poll, runtime, set_focus, set_notice):
                     on_click=lambda _v, p=_proposal: (add_cell(p), set_focus(p["id"]),
                         set_notice("Proposal retained with its original verification status."))))
             _rows.append(mo.vstack(_row))
-        mo.vstack(_rows or [mo.md("_No site investigations queued._")])
+        _job_panel = mo.vstack(_rows or [mo.md("_No site investigations queued._")])
+    else:
+        _job_panel = mo.md("")
+    _job_panel
     return
 
 

@@ -18,18 +18,33 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install -r requirements.txt
+      - run: pip install -r requirements.txt uv
       - run: python -m unittest test_flow_site_runtime
-      - run: marimo check flow_site.py
+      - run: marimo check --strict flow_site.py
+      - run: python -c "from flow_site import app; app.run()"
       - run: |
           mkdir -p _site/marimo
           cp -a docs/. _site/
           marimo export html-wasm flow_site.py --mode run --single-file -o _site/marimo/index.html
+      - name: Commit public browser preview to existing Pages source
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          mkdir -p docs/marimo
+          cp _site/marimo/index.html docs/marimo/index.html
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/marimo/index.html
+          if ! git diff --cached --quiet; then
+            git commit -m "Publish generated Marimo browser preview"
+            git push origin HEAD:main
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: flow-marimo-preview
