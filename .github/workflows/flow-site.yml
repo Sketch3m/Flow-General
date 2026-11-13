@@ -1,0 +1,54 @@
+name: Flow General Marimo site
+on:
+  push:
+    paths:
+      - 'flow_site.py'
+      - 'flow_site_runtime.py'
+      - 'test_flow_site_runtime.py'
+      - 'requirements.txt'
+      - '.github/workflows/flow-site.yml'
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Publish browser-only preview to GitHub Pages (requires Actions Pages source)'
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - run: python -m unittest test_flow_site_runtime
+      - run: marimo check flow_site.py
+      - run: |
+          mkdir -p _site/marimo
+          cp -a docs/. _site/
+          marimo export html-wasm flow_site.py --mode run --single-file -o _site/marimo/index.html
+      - uses: actions/upload-artifact@v4
+        with:
+          name: flow-marimo-preview
+          path: _site/marimo/index.html
+      - uses: actions/upload-pages-artifact@v3
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish }}
+        with:
+          path: _site
+  publish:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish }}
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
