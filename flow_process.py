@@ -156,8 +156,11 @@ class Process:
                   "evidence":retrieval["evidence"],
                   "scanned_chars":retrieval["scanned_chars"],
                   "capabilities":self.meaning(query,self.permissions),
-                  "scope_hash":digest(scope)}
+                  "scope_hash":digest(scope),"revision":scope["revision"],
+                  "prior_revisions":scope["prior_revisions"]}
         # Prior sibling revisions participate in the cache scope.
+        if self.scope(cid,prompt,selection,allowed) != scope:
+            raise Stale("context changed during acquisition")
         self.rt.cache_put(scope,result)
         return {**result,"cache_hit":False}
 
@@ -175,7 +178,8 @@ class Process:
             raise PermissionError(capability)
         context = self.context(cid,prompt,selection=selection,allowed=allowed)
         context.pop("cache_hit",None)
-        return self.rt.submit(cid,capability,role=role,inputs={
+        return self.rt.submit(cid,capability,role=role,
+            expected_revision=context["revision"],context_revisions=context["prior_revisions"],inputs={
             "context":context,"arguments":inputs or {},"version":cap.version,
             "permission":cap.permission,"allowed":sorted(allowed or ())},**options)
 
