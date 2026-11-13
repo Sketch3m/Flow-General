@@ -168,17 +168,26 @@ class Runtime:
             self._event(notebook,cid,"focus.changed",{"selection":selection or {}})
 
     def submit(self, cid, capability, *, role="experiential", inputs=None,
-               priority=0, max_attempts=3, dependencies=(), request_key=None):
+               priority=0, max_attempts=3, dependencies=(), request_key=None,
+               expected_revision=None, context_revisions=()):
         if max_attempts < 1:
             raise ValueError("max_attempts must be positive")
         deps = sorted(set(dependencies))
         with self.tx():
             c = self.cell(cid)
+            if expected_revision is not None and c["revision"] != expected_revision:
+                raise Stale("context prepared for obsolete cell revision")
+            context_revisions = list(context_revisions)
+            for source_id, revision in context_revisions:
+                source = self.cell(source_id)
+                if source["notebook"] != c["notebook"] or source["revision"] != revision:
+                    raise Stale("context source revision changed")
             for dep in deps:
                 d = self.task(dep)
                 if self.cell(d["cell"])["notebook"] != c["notebook"]:
                     raise ValueError("cross-notebook dependency")
-            snapshot = {"cell":c,"inputs":inputs or {},"dependencies":deps}
+            snapshot = {"cell":c,"inputs":inputs or {},"dependencies":deps,
+                        "context_revisions":context_revisions}
             ih = digest(snapshot)
             key = digest([cid,role,capability,ih,request_key])
             existing = self.db.execute("SELECT id FROM tasks WHERE key=?", (key,)).fetchone()
@@ -204,6 +213,12 @@ class Runtime:
                                 (status,row["id"]))
                 self._event(self.cell(row["cell"])["notebook"],row["cell"],"task.lease_expired",
                             {"task":row["id"],"status":status})
+            for row in self.db.execute("SELECT id FROM tasks WHERE status IN ('queued','running','blocked')").fetchall():
+                t = self.task(row["id"])
+                if not self._input_current(t):
+                    self.db.execute("UPDATE tasks SET status='stale',lease=NULL,deadline=NULL WHERE id=?", (t["id"],))
+                    self.db.execute("UPDATE clarifications SET status='stale' WHERE task=? AND status='open'", (t["id"],))
+                    self._event(self.cell(t["cell"])["notebook"],t["cell"],"task.stale",{"task":t["id"]})
             # Dependency failure propagates without claiming unusable tasks.
             while True:
                 dead = self.db.execute("""
@@ -236,11 +251,17 @@ class Runtime:
                 return self.task(r["id"])
         return None
 
+    def _input_current(self, t):
+        if self.cell(t["cell"])["revision"] != t["revision"]:
+            return False
+        return all(self.cell(cid)["revision"] == rev
+                   for cid,rev in t["input"].get("context_revisions",[]))
+
     def _leased(self, tid, token):
         t = self.task(tid)
         c = self.cell(t["cell"])
         if (t["status"]!="running" or not token or t["lease"]!=token
-            or t["deadline"]<=self.clock() or c["revision"]!=t["revision"]):
+            or t["deadline"]<=self.clock() or not self._input_current(t)):
             raise Stale("expired lease or obsolete task")
         return t,c
 
@@ -273,7 +294,7 @@ class Runtime:
 
     def _resume(self, t, decision):
         c = self.cell(t["cell"])
-        if t["status"]!="blocked" or t["revision"]!=c["revision"]:
+        if t["status"]!="blocked" or not self._input_current(t):
             raise Stale("task no longer blocked at this revision")
         if t["attempts"]>=t["max_attempts"]:
             raise ValueError("attempt budget exhausted")
@@ -294,7 +315,7 @@ class Runtime:
         with self.tx():
             t = self.task(tid)
             c = self.cell(t["cell"])
-            if t["status"]!="blocked" or c["revision"]!=t["revision"]:
+            if t["status"]!="blocked" or not self._input_current(t):
                 raise Stale("task no longer blocked")
             existing = self.db.execute("SELECT id,status FROM clarifications WHERE task=? AND revision=? AND question=?",
                                        (tid,t["revision"],question)).fetchone()
