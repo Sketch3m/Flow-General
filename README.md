@@ -1,5 +1,7 @@
 # nodus — a document that is also a map of itself
 
+> **Flow General UI (Nov 2026):** The live `flow_site.py` Marimo notebook now has inline **Fulfillment conversations** with persistent, navigable nested subchats and manual report-back, plus a separate **Shadow** ambient panel. The browser demo is exported at [`docs/index.html`](docs/index.html). See [`FLOW_SITE.md`](FLOW_SITE.md) for setup and the exact execution limits. PandaCode integration and autonomous Shadow agents are **not yet connected**.
+>
 | file | what it is | lines |
 |---|---|---|
 | `nodus.py` | text → concept graph → clusters → ranked gaps, at two resolutions | 985 |
