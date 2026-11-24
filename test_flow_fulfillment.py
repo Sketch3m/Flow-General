@@ -47,16 +47,17 @@ class FulfillmentTests(unittest.TestCase):
         root = f.ensure_root("cell-c", "An intent", self.db)
         ch = f.open_child(root, "Worker", "A job", self.db)
         grand = f.open_child(ch, "Nested", "More work", self.db)
+        third = f.open_child(grand, "Third level", "Boundary test", self.db)
         with self.assertRaises(ValueError):
-            f.open_child(grand, "Too deep", "Nope", self.db)
+            f.open_child(third, "Too deep", "Nope", self.db)
         with self.assertRaises(ValueError):
             f.post_user_message(root, "x" * (f.MAX_TEXT + 1), self.db)
         with self.assertRaises(ValueError):
             f.open_child(root, "Invalid", "", self.db)
-        self.assertEqual(f.cancel_thread(ch, self.db), 2)
+        self.assertEqual(f.cancel_thread(ch, self.db), 3)
         self.assertEqual(f.tree("cell-c", self.db)[0]["status"], "open")
         self.assertEqual([t["status"] for t in f.tree("cell-c", self.db)][1:],
-                         ["cancelled", "cancelled"])
+                         ["cancelled", "cancelled", "cancelled"])
         with self.assertRaises(ValueError):
             f.open_child(ch, "After stop", "No", self.db)
 
