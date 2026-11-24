@@ -136,3 +136,30 @@ def adopt(job):
             "intent": "", "params": {}, "provenance": {"job": job["id"],
                 "grounded": bool(job.get("grounded")), "crossed": bool(job.get("crossed")),
                 "status": job.get("status")}}
+
+
+# Flow Fulfillment is a conversation store, not Shadow or an LLM executor.
+# Kept separate from the legacy graph-gap queue to prevent fabricated work.
+def fulfillment_tree(cell_id, path=None):
+    import flow_fulfillment as f
+    return f.tree(cell_id, path)
+
+def fulfillment_open(cell_id, intent, path=None):
+    import flow_fulfillment as f
+    return f.ensure_root(cell_id, intent, path)
+
+def fulfillment_subchat(parent_id, title, brief, path=None):
+    import flow_fulfillment as f
+    return f.open_child(parent_id, title, brief, path)
+
+def fulfillment_message(thread_id, message, path=None):
+    import flow_fulfillment as f
+    return f.post_user_message(thread_id, message, path)
+
+def fulfillment_report(thread_id, report, path=None):
+    import flow_fulfillment as f
+    return f.finish_child(thread_id, report, path)
+
+def fulfillment_cancel(thread_id, path=None):
+    import flow_fulfillment as f
+    return f.cancel_thread(thread_id, path)
