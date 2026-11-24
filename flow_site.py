@@ -44,8 +44,10 @@ def _(mo, runtime, starter):
     get_events, set_events = mo.state([])
     get_thread_focus, set_thread_focus = mo.state(None, allow_self_loops=True)
     get_refresh, set_refresh = mo.state(0, allow_self_loops=True)
+    get_preview_threads, set_preview_threads = mo.state({}, allow_self_loops=True)
     return (get_events, get_focus, get_notice, get_workspace, get_thread_focus, get_refresh,
-            set_events, set_focus, set_notice, set_workspace, set_thread_focus, set_refresh)
+            get_preview_threads, set_events, set_focus, set_notice, set_workspace,
+            set_thread_focus, set_refresh, set_preview_threads)
 
 
 @app.cell
@@ -64,6 +66,110 @@ def _(get_workspace, runtime, set_events, set_workspace):
         set_events(lambda old: (old + [{"cell_id": cell_id, **event}])[-100:])
 
     return add_cell, patch_cell
+
+
+@app.cell
+def _(get_preview_threads, set_preview_threads, uuid4):
+    # Browser-only interactive design preview. No model or external tools run.
+    # Real server mode uses flow_fulfillment.py + SQLite instead.
+    class PreviewConversations:
+        def fulfillment_tree(self, cell_id):
+            return get_preview_threads().get(cell_id, [])
+
+        def fulfillment_open(self, cell_id, intent):
+            existing = self.fulfillment_tree(cell_id)
+            if existing:
+                return existing[0]["id"]
+            identifier = "preview-" + uuid4().hex
+            record = {"id": identifier, "cell_id": cell_id, "parent_id": None,
+                      "title": "Fulfillment", "depth": 0, "status": "open",
+                      "messages": [{"role": "user", "source": "cell_intent",
+                                    "text": intent, "created_at": 0}]}
+            set_preview_threads(lambda old: {**old, cell_id: old.get(cell_id, []) + [record]})
+            return identifier
+
+        def fulfillment_subchat(self, parent_id, title, brief):
+            title, brief = title.strip(), brief.strip()
+            if not title or len(title) > 100 or not brief or len(brief) > 12000:
+                raise ValueError("Enter a subchat title and brief within the limits.")
+            for cell_id, threads in get_preview_threads().items():
+                parent = next((t for t in threads if t["id"] == parent_id), None)
+                if parent:
+                    if parent["status"] != "open" or parent["depth"] >= 3:
+                        raise ValueError("Parent closed or nesting limit reached.")
+                    identifier = "preview-" + uuid4().hex
+                    record = {"id": identifier, "cell_id": cell_id, "parent_id": parent_id,
+                              "title": title, "depth": parent["depth"] + 1, "status": "open",
+                              "messages": [{"role": "user", "source": "delegated_brief",
+                                            "text": brief, "created_at": 0}]}
+                    set_preview_threads(lambda old: {**old, cell_id: old.get(cell_id, []) + [record]})
+                    return identifier
+            raise KeyError(parent_id)
+
+        def fulfillment_message(self, thread_id, message):
+            body = message.strip()
+            if not body or len(body) > 12000:
+                raise ValueError("Reply must be 1–12000 characters.")
+            for cell_id, threads in get_preview_threads().items():
+                if any(t["id"] == thread_id for t in threads):
+                    if next(t for t in threads if t["id"] == thread_id)["status"] != "open":
+                        raise ValueError("Thread is closed.")
+                    def transform(old):
+                        return {**old, cell_id: [{**t, "messages": t["messages"] +
+                             [{"role":"user", "source":"human", "text":body, "created_at":0}]}
+                             if t["id"] == thread_id else t for t in old[cell_id]]}
+                    set_preview_threads(transform)
+                    return {"ok": True, "dispatch": "browser_demo"}
+            raise KeyError(thread_id)
+
+        def fulfillment_report(self, thread_id, report):
+            report = report.strip()
+            if not report or len(report) > 12000:
+                raise ValueError("A report of 1–12000 characters is required.")
+            for cell_id, threads in get_preview_threads().items():
+                child = next((t for t in threads if t["id"] == thread_id), None)
+                if child:
+                    if not child["parent_id"] or child["status"] != "open":
+                        raise ValueError("Only an open child may report back.")
+                    parent = next(t for t in threads if t["id"] == child["parent_id"])
+                    if parent["status"] != "open":
+                        raise ValueError("Parent thread is closed.")
+                    def transform(old):
+                        updated = []
+                        for t in old[cell_id]:
+                            if t["id"] == thread_id:
+                                updated.append({**t, "status": "completed",
+                                    "messages": t["messages"] + [{"role": "report",
+                                        "source": "manual_report", "text": report, "created_at": 0}]})
+                            elif t["id"] == child["parent_id"]:
+                                updated.append({**t, "messages": t["messages"] +
+                                    [{"role": "report", "source": "manual_child_report",
+                                      "text": "[" + child["title"] + " — manually reported] " + report,
+                                      "created_at": 0}]})
+                            else:
+                                updated.append(t)
+                        return {**old, cell_id: updated}
+                    set_preview_threads(transform)
+                    return child["parent_id"]
+            raise KeyError(thread_id)
+
+        def fulfillment_cancel(self, thread_id):
+            for cell_id, threads in get_preview_threads().items():
+                if any(t["id"] == thread_id for t in threads):
+                    ids = {thread_id}
+                    changed = True
+                    while changed:
+                        descendants = {t["id"] for t in threads if t["parent_id"] in ids}
+                        changed = not descendants.issubset(ids)
+                        ids.update(descendants)
+                    set_preview_threads(lambda old: {**old, cell_id: [
+                        {**t, "status": "cancelled"} if t["id"] in ids and
+                        t["status"] == "open" else t for t in old[cell_id]]})
+                    return len(ids)
+            raise KeyError(thread_id)
+
+    preview = PreviewConversations()
+    return (preview,)
 
 
 @app.cell
@@ -137,11 +243,12 @@ def _(get_notice, mo):
 
 @app.cell
 def _(add_cell, chart, get_focus, get_refresh, get_thread_focus, get_workspace, html, mo,
-          patch_cell, poll, runtime, set_focus, set_notice, set_refresh, set_thread_focus, uuid4):
+          patch_cell, poll, preview, runtime, set_focus, set_notice, set_refresh, set_thread_focus, uuid4):
     # One ordered computational notebook; Fulfillment lives inside the cell,
     # whereas Shadow is an ambient *separate* observer on the right.
     _refresh = get_refresh()
     _focus = get_focus()
+    _fulfill_backend = runtime or preview
 
     def _perform(action, notice):
         try:
@@ -164,7 +271,7 @@ def _(add_cell, chart, get_focus, get_refresh, get_thread_focus, get_workspace, 
 
     def _fulfillment(cell):
         cid = cell["id"]
-        threads = runtime.fulfillment_tree(cid) if runtime else []
+        threads = _fulfill_backend.fulfillment_tree(cid)
         root = next((t for t in threads if t["parent_id"] is None), None)
         if root is None:
             _intent = cell.get("intent", "").strip()
@@ -173,27 +280,28 @@ def _(add_cell, chart, get_focus, get_refresh, get_thread_focus, get_workspace, 
                            "An inspectable conversation attached to this cell. "
                            "Open it to clarify intent, create genuine child threads and collect results.")
             if not runtime:
-                return mo.vstack([_intro, mo.md(
-                    "_Server-only: persistent subchats are unavailable in the static WASM preview._")])
+                _intro = mo.vstack([_intro, mo.md(
+                    "_Browser demo: these chats are temporary and do not run AI or save across reloads._")])
             return mo.vstack([_intro, mo.ui.button(
                 label="Open Fulfillment conversation",
                 on_click=lambda _v, c=cid, a=_initial:
-                    _perform(lambda: runtime.fulfillment_open(c, a[:12000] or "Explore this cell"),
+                    _perform(lambda: _fulfill_backend.fulfillment_open(c, a[:12000] or "Explore this cell"),
                              "Conversation opened. Local only; PandaCode execution is not connected."),
             )], gap=0.4).style({"border": "1px solid #b5cfc4", "border-radius": "10px",
                                "padding": "14px", "background": "#f5faf7"})
         _chosen = get_thread_focus()
         current = next((t for t in threads if t["id"] == _chosen), root)
-        children = [t for t in threads if t["parent_id"] == root["id"]]
+        children = [t for t in threads if t["id"] != root["id"]]
         _tabs = [mo.ui.button(label="Main conversation" + (" · selected" if current["id"] == root["id"] else ""),
                               on_click=lambda _v, tid=root["id"]: set_thread_focus(tid))]
         for _t in children:
             _tabs.append(mo.ui.button(
-                label=_t["title"][:27] + " · " + _t["status"],
+                label=("↳ " * _t["depth"]) + _t["title"][:27] + " · " + _t["status"],
                 on_click=lambda _v, tid=_t["id"]: set_thread_focus(tid)))
         _header = mo.Html('<div class="flow-fulfillment-head"><b>✧ Fulfillment</b>'
             '<span>Cell-scoped conversation · ' + str(len(threads) - 1) +
-            ' subchat(s) · <strong>Engine not connected</strong></span></div>')
+            ' subchat(s) · <strong>' + ("Browser demo" if not runtime else "Engine not connected") +
+            '</strong></span></div>')
         _content = [mo.hstack(_tabs, wrap=True, gap=0.3),
                     mo.Html('<div class="flow-label">' +
                         html.escape(current["title"] + " / " + current["status"]) + '</div>'),
@@ -205,7 +313,7 @@ def _(add_cell, chart, get_focus, get_refresh, get_thread_focus, get_workspace, 
             _content.extend([_reply, mo.ui.button(
                 label="Save reply to conversation",
                 on_click=lambda _v, field=_reply, tid=current["id"]:
-                    _perform(lambda: runtime.fulfillment_message(tid, field.value),
+                    _perform(lambda: _fulfill_backend.fulfillment_message(tid, field.value),
                              "Reply saved locally. No model was invoked."),
             )])
             if current["parent_id"]:
@@ -214,12 +322,12 @@ def _(add_cell, chart, get_focus, get_refresh, get_thread_focus, get_workspace, 
                 _content.extend([_report, mo.hstack([
                     mo.ui.button(label="Report to parent (manual)",
                         on_click=lambda _v, field=_report, tid=current["id"], parent=current["parent_id"]:
-                            _perform(lambda: (runtime.fulfillment_report(tid, field.value),
+                            _perform(lambda: (_fulfill_backend.fulfillment_report(tid, field.value),
                                                set_thread_focus(parent)),
                                      "Manual report saved in parent conversation; no AI run claimed.")),
                     mo.ui.button(label="Cancel this thread",
                         on_click=lambda _v, tid=current["id"]:
-                            _perform(lambda: runtime.fulfillment_cancel(tid),
+                            _perform(lambda: _fulfill_backend.fulfillment_cancel(tid),
                                      "Local thread cancelled; no external process was running.")),
                 ], gap=0.5)])
         # Child conversations may themselves open children, like Maus start_thread.
@@ -234,7 +342,7 @@ def _(add_cell, chart, get_focus, get_refresh, get_thread_focus, get_workspace, 
                     label="Create subchat",
                     on_click=lambda _v, parent=current["id"], title=_title, brief=_brief:
                         _perform(lambda: set_thread_focus(
-                            runtime.fulfillment_subchat(parent, title.value, brief.value)),
+                            _fulfill_backend.fulfillment_subchat(parent, title.value, brief.value)),
                             "Inspectable subchat created; queued for an execution adapter.")),
             ])}))
         # Every leaf report is an inspectable proposal, never silently a fact.
@@ -307,7 +415,7 @@ def _(add_cell, chart, get_focus, get_refresh, get_thread_focus, get_workspace, 
                  if _cell.get("provenance") else ""))}))
         else:
             if runtime:
-                _count = len(runtime.fulfillment_tree(_id))
+                _count = len(_fulfill_backend.fulfillment_tree(_id))
                 if _count:
                     _parts.append(mo.md(f"**Fulfillment:** {_count} stored conversation(s) · open cell to inspect"))
         _cards.append(mo.vstack(_parts, gap=0.5).style({
@@ -333,8 +441,13 @@ def _(add_cell, chart, get_focus, get_refresh, get_thread_focus, get_workspace, 
                mo.md("**Actual site worker · legacy graph-gap queue**")]
     if runtime:
         def _queue(_v):
-            _perform(lambda: set_notice(runtime.queue(get_workspace(), get_focus() or "")["reason"]),
-                     "Graph-gap queue requested; inspect status below.")
+            try:
+                _result = runtime.queue(get_workspace(), get_focus() or "")
+                set_notice(_result.get("reason", "Queue request recorded; inspect jobs below."))
+            except (ValueError, KeyError, RuntimeError) as exc:
+                set_notice("Queue failed: " + str(exc))
+            finally:
+                set_refresh(lambda n: n + 1)
         _shadow.append(mo.ui.button(label="Queue graph-gap investigation", on_click=_queue))
         _shadow.append(poll)
         _jobs = runtime.status()
