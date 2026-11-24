@@ -1,5 +1,49 @@
 # Flow General — native Marimo site
 
+## Approved UI implementation — Fulfillment × Shadow (2026-11-23)
+
+This version preserves the **SolveIt/nbdev ordered notebook** and adds the
+approved interaction split, based on the light Flow-General screenshots:
+
+- **Fulfillment lives inside the focused notebook cell.** Click **Open
+  Fulfillment conversation**, then create one or more **nested subchats**.
+  Open a child, write another brief/reply, complete it with an explicitly
+  **manual** report, and insert that report as a provenance-tagged,
+  **unverified** editable notebook cell. Subchats are real navigable
+  conversation records, not separate Scout/Critic/Experiment roles.
+- **Shadow stays in the right-hand panel.** Scout, Critic, and Experiment are
+  **ambient role placeholders**, visibly marked **Not connected** until the
+  relevant adapter runs. The existing server graph-gap queue appears in the
+  same panel with its real status and review/adoption affordance. Do not call
+  it full autonomous Shadow.
+- **Server mode:** `flow_fulfillment.py` persists cell root, parent/child
+  relationships, message provenance, status and audit events transactionally
+  to `FLOW_SITE_DB` (default `solve/flow-site.sqlite3`). A cell has one
+  idempotent root. Manual child report-back is atomic; cancelling cascades
+  through descendants. No provider calls or fake model completions.
+- **Browser/WASM demo:** `docs/index.html` is regenerated from
+  `flow_site.py`. It exposes the same nested chat controls with transient
+  in-memory state. Every browser-only action is explicitly a **demo**;
+  nothing survives reload, and no LLM/agent is called.
+- **PandaCode** remains the preferred future native executor. **OpenMausBot**
+  supplies thread/delegation semantics, not a second Electron shell. The
+  PandaCode execution bridge, real model replies, resumable remote runs,
+  automatic Shadow triggers and full v6 browser-worker integration **are not
+  present or validated in this slice**.
+
+### Check this implementation
+
+```sh
+python -m unittest discover -p 'test_*.py'
+python -m marimo check flow_site.py
+python -m marimo export html-wasm flow_site.py --mode run --single-file -o flow-preview.html
+python -m marimo export html flow_site.py -o flow-server-snapshot.html
+```
+
+Focused tests cover cell isolation, nesting limits, messaging, manual
+report-back, cancellation and audit events. The exported preview uses Marimo
+in WASM, so it requires an internet connection for its external assets.
+
 The app is `flow_site.py`, an actual Marimo notebook, not a custom JavaScript frontend.
 It preserves a single ordered notebook with focusable cells, compact slide previews,
 an executable predator–prey cell, persistent main intents, and parameter/subprompt
